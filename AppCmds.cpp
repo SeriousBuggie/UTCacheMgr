@@ -244,7 +244,33 @@ void CAppCmds::OnCacheRescan()
 
 	// Search cache for files.
 	const tstring        mask = Core::fmt(TXT("*.%s"), App.m_strCacheExt.c_str());
-	const WCL::FileNames files = WCL::FindFilesInFolder(strCacheDir.c_str(), mask); 
+	const WCL::FileNames files = WCL::FindFilesInFolder(strCacheDir.c_str(), mask);
+
+	{ // Buggie: dirty hack for support cache.ini with UTF-8 BOM
+		FILE* fileCacheIni;
+		fileCacheIni = _wfopen(strCacheFile, TEXT("r"));
+		if (fileCacheIni != nullptr)
+		{
+			DWORD BOM = 0;
+			if (fread(&BOM, 1, 3, fileCacheIni) == 3 && BOM == 0x00BFBBEF)
+			{
+				FILE* fileCacheIniTmp;
+				CPath   strCacheIniTmp = strCacheFile;
+				strCacheIniTmp += TEXT(".txt");
+				fileCacheIniTmp = _wfopen(strCacheIniTmp, TEXT("w"));
+				if (fileCacheIniTmp != nullptr)
+				{
+					byte Buf[8192];
+					size_t read;
+					while ((read = fread(&Buf, 1, sizeof(Buf), fileCacheIni)) > 0)
+						fwrite(&Buf, 1, read, fileCacheIniTmp);
+					fclose(fileCacheIniTmp);
+					strCacheFile = strCacheIniTmp;
+				}
+			}
+			fclose(fileCacheIni);
+		}
+	}
 
 	CIniFile oIdxFile(strCacheFile);
 
